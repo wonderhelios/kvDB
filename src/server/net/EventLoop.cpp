@@ -51,6 +51,10 @@ void EventLoop::loop() {
   looping_ = false;
 }
 
+void EventLoop::runInLoop(const Functor &cb) {
+  cb();
+}
+
 void EventLoop::quit() { quit_ = true; }
 
 void EventLoop::updateChannel(Channel *channel) {

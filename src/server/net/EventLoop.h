@@ -5,6 +5,7 @@
 #pragma once
 
 #include <atomic>
+#include <functional>
 #include <thread>
 #include <vector>
 
@@ -13,6 +14,8 @@ class Channel;
 
 class EventLoop {
 public:
+  using Functor = std::function<void()>;
+
   EventLoop();
   ~EventLoop();
 
@@ -27,6 +30,8 @@ public:
   bool isInLoopThread() const{
     return threadId_ == std::this_thread::get_id();
   }
+
+  void runInLoop(const Functor & cb);
 
   void updateChannel(Channel * channel);
   void removeChannel(Channel * channel);

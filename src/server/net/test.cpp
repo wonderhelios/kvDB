@@ -2,8 +2,16 @@
 // Created by wonder on 2021/9/20.
 //
 
-#include "Logger.h"
+#include "Server.h"
+#include "InetAddress.h"
+
 int main(){
-  LOG_INFO("hello db!");
-  return 0;
+    EventLoop loop;
+    InetAddress localAddr(12345);
+    Server server(&loop,localAddr);
+
+    server.start();
+
+    loop.loop();
+    return 0;
 }

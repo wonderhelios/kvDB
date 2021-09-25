@@ -10,35 +10,37 @@
 
 class EventLoop;
 
-class Channel : noncopyable{
+class Channel : noncopyable {
 public:
   using EventCallback = std::function<void()>;
 
-  Channel(EventLoop * loop,int fd);
+  Channel(EventLoop *loop, int fd);
   ~Channel();
 
   void handleEvent();
 
-  void setReadCallback(const EventCallback & cb){ readCallback_ = cb;}
-  void setWriteCallback(const EventCallback & cb){ writeCallback_ = cb;}
-  void setErrorCallback(const EventCallback & cb){ errorCallback_ = cb;}
+  void setReadCallback(const EventCallback &cb) { readCallback_ = cb; }
+  void setWriteCallback(const EventCallback &cb) { writeCallback_ = cb; }
+  void setErrorCallback(const EventCallback &cb) { errorCallback_ = cb; }
+  void setCloseCallback(const EventCallback &cb) { closeCallback_ = cb; }
 
-  int fd() const{ return fd_;}
-  int events() const{ return events_;}
-  void set_revents(int revt){ revents_ = revt;}
-  bool isNoneEvent() const{ return events_ == kNoneEvent;}
+  int fd() const { return fd_; }
+  int events() const { return events_; }
+  void set_revents(int revt) { revents_ = revt; }
+  bool isNoneEvent() const { return events_ == kNoneEvent; }
 
   void enableReading();
   void enableWriting();
   void disableWriting();
   void disableAll();
 
-
+  bool isWriting() const { return events_ & kWriteEvent; }
   // for Poller
-  int index(){ return index_;}
-  void set_index(int idx){ index_ = idx;}
+  int index() { return index_; }
+  void set_index(int idx) { index_ = idx; }
 
-  EventLoop * ownerLoop(){ return loop_;}
+  EventLoop *ownerLoop() { return loop_; }
+
 private:
   void update();
 
@@ -46,7 +48,7 @@ private:
   static const int kReadEvent;
   static const int kWriteEvent;
 
-  EventLoop * loop_;
+  EventLoop *loop_;
   const int fd_;
   int events_;
   int revents_;
@@ -55,8 +57,5 @@ private:
   EventCallback readCallback_;
   EventCallback writeCallback_;
   EventCallback errorCallback_;
+  EventCallback closeCallback_;
 };
-
-
-
-
