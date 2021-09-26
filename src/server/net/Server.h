@@ -6,6 +6,7 @@
 #include "Callbacks.h"
 #include "EventLoop.h"
 #include "Acceptor.h"
+#include "TcpConnection.h"
 #include <functional>
 #include <map>
 

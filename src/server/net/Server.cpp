@@ -34,7 +34,7 @@ void Server::start() {
     if (!acceptor_->listening()) {
         loop_->runInLoop(std::bind(&Acceptor::listen, acceptor_.get()));
     }
-    LOG_INFO("TcpServer started......\n");
+    LOG_INFO("Server started......\n");
 }
 
 void Server::newConnection(int sockfd, const InetAddress &peerAddr) {
@@ -45,7 +45,7 @@ void Server::newConnection(int sockfd, const InetAddress &peerAddr) {
     ++nextConnId_;
     std::string connName = name_ + buf;
 
-    LOG_INFO("TcpServer::newConnection [%s] - new connection [%s] from %s\n",
+    LOG_INFO("Server::newConnection [%s] - new connection [%s] from %s\n",
              name_.c_str(), connName.c_str(), peerAddr.toIpPort().c_str());
 
     InetAddress localAddr(sockets::getLocalAddr(sockfd));
@@ -67,7 +67,7 @@ void Server::removeConnection(const TcpConnectionPtr &conn) {
 
 void Server::removeConnectionInLoop(const TcpConnectionPtr &conn) {
     loop_->assertInLoopThread();
-    LOG_INFO("TcpServer::removeConnection [%s] - connection.\n", conn->name().c_str());
+    LOG_INFO("Server::removeConnection [%s] - connection.\n", conn->name().c_str());
     size_t n = connections_.erase(conn->name());
     assert(n == 1);
     loop_->runInLoop(std::bind(&TcpConnection::connectDestroyed, conn));

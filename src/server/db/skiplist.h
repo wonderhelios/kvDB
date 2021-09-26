@@ -6,8 +6,6 @@
 
 #include <cstring>
 #include <fstream>
-#include <mutex>
-#include "noncopyable.h"
 
 #define STORE_FILE "dumpFile"
 std::string delimiter = ":";
@@ -51,7 +49,7 @@ Node<K, V>::~Node<K, V>() {
 
 // SkipList
 template <typename K, typename V>
-class SkipList : noncopyable {
+class SkipList {
  public:
   explicit SkipList(int max_level);
   ~SkipList();
@@ -86,8 +84,6 @@ class SkipList : noncopyable {
   // 文件流
   std::ofstream file_writer_;
   std::ifstream file_reader_;
-  // 并发访问
-  std::mutex mutex_;
 };
 
 template <typename K, typename V>
@@ -128,7 +124,6 @@ Node<K, V> *SkipList<K, V>::CreateNode(const K &key, const V &value,
  */
 template <typename K, typename V>
 int SkipList<K, V>::InsertElement(const K key, const V value) {
-  std::unique_lock<std::mutex> locker(mutex_);
 
   Node<K, V> *current = this->header_;
 
@@ -173,7 +168,6 @@ int SkipList<K, V>::InsertElement(const K key, const V value) {
 
 template <typename K, typename V>
 bool SkipList<K, V>::DeleteElement(const K key) {
-  std::unique_lock<std::mutex> locker(mutex_);
 
   Node<K, V> *current = this->header_;
   Node<K, V> *update[max_level_ + 1];
