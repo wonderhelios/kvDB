@@ -8,6 +8,7 @@
 #include <functional>
 #include <thread>
 #include <vector>
+#include "Timestamp.h"
 
 class EpollPoller;
 class Channel;
@@ -44,6 +45,7 @@ private:
   std::atomic_bool looping_;
   std::atomic_bool quit_;
   const std::thread::id threadId_;
+  Timestamp epollReturnTime_;
 
   std::unique_ptr<EpollPoller> poller_;
   ChannelList activeChannels_;

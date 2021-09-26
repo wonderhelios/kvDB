@@ -43,9 +43,9 @@ void EventLoop::loop() {
 
   while (!quit_) {
     activeChannels_.clear();
-    poller_->poll(kPollTimeMs, &activeChannels_);
+    epollReturnTime_ = poller_->poll(kPollTimeMs, &activeChannels_);
     for (Channel *channel : activeChannels_) {
-      channel->handleEvent();
+      channel->handleEvent(epollReturnTime_);
     }
   }
   looping_ = false;

@@ -26,12 +26,12 @@ void Channel::update() {
   loop_->updateChannel(this);
 }
 
-void Channel::handleEvent() {
+void Channel::handleEvent(Timestamp receiveTime) {
   if(revents_ & EPOLLERR){
     if(errorCallback_) errorCallback_();
   }
   if(revents_ & (EPOLLIN | EPOLLPRI | EPOLLRDHUP)){
-    if(readCallback_) readCallback_();
+    if(readCallback_) readCallback_(receiveTime);
   }
   if(revents_ & EPOLLOUT){
     if(writeCallback_) writeCallback_();

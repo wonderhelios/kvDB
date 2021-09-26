@@ -2,43 +2,73 @@
 // Created by wonder on 2021/9/24.
 //
 
-#include <sys/wait.h>
 #include "Server.h"
 #include "Acceptor.h"
 #include "Logger.h"
+#include "TcpConnection.h"
 
-Server::Server(EventLoop *loop, const InetAddress &listenAddr)
+Server::Server(EventLoop *loop, const InetAddress &listenAddr, std::string name)
         : loop_(loop),
-          acceptor_(new Acceptor(loop_, listenAddr)){
+          name_(std::move(name)),
+          acceptor_(new Acceptor(loop, listenAddr)),
+          connectionCallback_(defaultConnectionCallback),
+          messageCallback_(defaultMessageCallback),
+          started_(false),
+          nextConnId_(1){
 
-    acceptor_->setConnectionCallback(std::bind(&Server::onConnection,
-                                               this,std::placeholders::_1));
-    acceptor_->setMessageCallback(std::bind(&Server::onMessage,
-                                            this,
-                                            std::placeholders::_1,
-                                            std::placeholders::_2,
-                                            std::placeholders::_3));
+    acceptor_->setNewConnectionCallback(
+            std::bind(&Server::newConnection, this,
+                      std::placeholders::_1,
+                      std::placeholders::_2));
+
 }
+
 Server::~Server() {
-    LOG_INFO("Server closed...\n");
-    while (waitpid(-1, nullptr, WNOHANG) != -1);
+    LOG_INFO("Server closed......\n");
 }
 
 void Server::start() {
-    LOG_INFO("Server started...\n");
-    acceptor_->listen();
-}
-
-void Server::onConnection(const AcceptorPtr & acceptor) {
-    if(acceptor_->connected()) {
-        LOG_INFO("Connection UP!!\n");
-    }else{
-        LOG_INFO("Connection DOWN!!\n");
+    if (!started_) {
+        started_ = true;
     }
+    if (!acceptor_->listening()) {
+        loop_->runInLoop(std::bind(&Acceptor::listen, acceptor_.get()));
+    }
+    LOG_INFO("TcpServer started......\n");
 }
 
-void Server::onMessage(const AcceptorPtr & acceptor, Buffer *buf, ssize_t n) {
-    auto msg = buf->retrieveAsString();
-    LOG_INFO("msg: %s",msg.c_str());
-    acceptor->send(msg);
+void Server::newConnection(int sockfd, const InetAddress &peerAddr) {
+    loop_->assertInLoopThread();
+
+    char buf[32];
+    snprintf(buf, sizeof buf, "#%d", nextConnId_);
+    ++nextConnId_;
+    std::string connName = name_ + buf;
+
+    LOG_INFO("TcpServer::newConnection [%s] - new connection [%s] from %s\n",
+             name_.c_str(), connName.c_str(), peerAddr.toIpPort().c_str());
+
+    InetAddress localAddr(sockets::getLocalAddr(sockfd));
+    TcpConnectionPtr conn = std::make_shared<TcpConnection>(loop_, connName,sockfd, localAddr, peerAddr);
+    connections_[connName] = conn;
+
+    conn->setConnectionCallback(connectionCallback_);
+    conn->setMessageCallback(messageCallback_);
+
+    conn->setCloseCallback(
+            std::bind(&Server::removeConnection, this, std::placeholders::_1));
+    loop_->runInLoop(
+            std::bind(&TcpConnection::connectEstablished, conn));
+}
+
+void Server::removeConnection(const TcpConnectionPtr &conn) {
+    loop_->runInLoop(std::bind(&Server::removeConnectionInLoop, this, conn));
+}
+
+void Server::removeConnectionInLoop(const TcpConnectionPtr &conn) {
+    loop_->assertInLoopThread();
+    LOG_INFO("TcpServer::removeConnection [%s] - connection.\n", conn->name().c_str());
+    size_t n = connections_.erase(conn->name());
+    assert(n == 1);
+    loop_->runInLoop(std::bind(&TcpConnection::connectDestroyed, conn));
 }

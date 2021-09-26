@@ -8,16 +8,21 @@
 #include <functional>
 #include <memory>
 
-class Acceptor;
+class TcpConnection;
 class Buffer;
-class InetAddress;
 
-using AcceptorPtr = std::shared_ptr<Acceptor>;
+using TcpConnectionPtr = std::shared_ptr<TcpConnection>;
 
-using NewConnectionCallback = std::function<void(int sockfd, const InetAddress&)>;
-using ConnectionCallback = std::function<void(const AcceptorPtr &)>;
-using MessageCallback = std::function<void(const AcceptorPtr &,
-                                           Buffer *buf,
-                                           ssize_t n)>;
-using CloseCallback = std::function<void()>;
-using ErrorCallback = std::function<void()>;
+using TimerCallback = std::function<void()>;
+using ConnectionCallback = std::function<void(const TcpConnectionPtr &)>;
+using MessageCallback = std::function<void(const TcpConnectionPtr &,
+                                           Buffer * buf,
+                                           Timestamp)>;
+using WriteCompleteCallback = std::function<void(const TcpConnectionPtr&)>;
+using CloseCallback = std::function<void(const TcpConnectionPtr&)>;
+
+void defaultConnectionCallback(const TcpConnectionPtr& conn);
+
+void defaultMessageCallback(const TcpConnectionPtr& conn,
+                            Buffer* buffer,
+                            Timestamp receiveTime);

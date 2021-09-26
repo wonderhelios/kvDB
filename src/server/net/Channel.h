@@ -13,13 +13,14 @@ class EventLoop;
 class Channel : noncopyable {
 public:
   using EventCallback = std::function<void()>;
+  using ReadEventCallback = std::function<void(Timestamp)>;
 
   Channel(EventLoop *loop, int fd);
   ~Channel();
 
-  void handleEvent();
+  void handleEvent(Timestamp receiveTime);
 
-  void setReadCallback(const EventCallback &cb) { readCallback_ = cb; }
+  void setReadCallback(const ReadEventCallback &cb) { readCallback_ = cb; }
   void setWriteCallback(const EventCallback &cb) { writeCallback_ = cb; }
   void setErrorCallback(const EventCallback &cb) { errorCallback_ = cb; }
   void setCloseCallback(const EventCallback &cb) { closeCallback_ = cb; }
@@ -54,7 +55,7 @@ private:
   int revents_;
   int index_;
 
-  EventCallback readCallback_;
+  ReadEventCallback readCallback_;
   EventCallback writeCallback_;
   EventCallback errorCallback_;
   EventCallback closeCallback_;
