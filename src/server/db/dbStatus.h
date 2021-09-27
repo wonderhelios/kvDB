@@ -36,13 +36,13 @@ public:
                     type = "-NotFound";
                     break;
                 case kIOError:
-                    type = "-IO Error";
+                    type = "-IO Error: ";
                     break;
                 default:
                     break;
             }
             std::string res(type);
-            res.append("\r\n" + msg_);
+            res.append(msg_);
             return res;
         }
     }

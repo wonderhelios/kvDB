@@ -25,8 +25,9 @@ bool Database::delKey(const int type, const std::string &key) {
         auto it = String_.find(key);
         if(it != String_.end()){
             String_.erase(key);
+            StringExpire_.erase(key);
         }else{
-            std::cout<<"Not Found"<<std::endl;
+//            std::cout<<"Not Found"<<std::endl;
             return false;
         }
     }
@@ -44,4 +45,43 @@ std::string Database::getKey(const int type, const std::string &key) {
         }
     }
     return res;
+}
+
+bool Database::setPExpireTime(const int type, const std::string &key, double expiredTime) {
+    if(type == dbObj::dbString){
+        auto it = String_.find(key);
+        if(it != String_.end()){
+            auto now = addTime(Timestamp::now(),expiredTime / Timestamp::kMicroSecondsPerMilliSecond);
+            StringExpire_[key] = now;
+            return true;
+        }
+    }
+    return false;
+}
+
+Timestamp Database::getKeyExpiredTime(const int type, const std::string &key) {
+    Timestamp tmp;
+    if(type == dbObj::dbString){
+        auto it = StringExpire_.find(key);
+        if(it != StringExpire_.end()){
+            tmp = it->second;
+        }else{
+            tmp = Timestamp::invalid();
+        }
+    }
+    return tmp;
+}
+
+bool Database::judgeKeyExpiredTime(const int type, const std::string &key) {
+    Timestamp expired = getKeyExpiredTime(type,key);
+    if(expired == Timestamp::invalid()){
+        return false;
+    }else{
+        Timestamp now = Timestamp::now();
+        if(now > expired){
+            return true;
+        }else{
+            return false;
+        }
+    }
 }

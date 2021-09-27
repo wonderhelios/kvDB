@@ -32,7 +32,8 @@ private:
 
     std::string setCommand(VctS&&);
     std::string getCommand(VctS&&);
-
+    std::string pExpiredCommand(VctS&&);
+    std::string expiredCommand(VctS&&);
     // db相关
     std::unique_ptr<Database> database_;
     std::unordered_map<std::string,
