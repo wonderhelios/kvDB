@@ -25,6 +25,7 @@ public:
     }
 
     static const int kMicroSecondsPerSecond = 1000 * 1000;
+    static const int kMilliSecondsPerSecond = 1000;
     static const int kMicroSecondsPerMilliSecond = 1000;
 private:
     int64_t microSecondsSinceEpoch_;
@@ -47,6 +48,9 @@ inline bool operator==(Timestamp lhs,Timestamp rhs){
 }
 inline Timestamp operator+(Timestamp lhs,Timestamp rhs){
     return Timestamp(lhs.microSecondsSinceEpoch() + rhs.microSecondsSinceEpoch());
+}
+inline Timestamp operator-(Timestamp lhs,Timestamp rhs){
+    return Timestamp(lhs.microSecondsSinceEpoch() - rhs.microSecondsSinceEpoch());
 }
 inline Timestamp addTime(Timestamp timestamp,double seconds){
     int64_t delta = static_cast<int64_t>(seconds * Timestamp::kMicroSecondsPerSecond);

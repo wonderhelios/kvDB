@@ -25,7 +25,11 @@ public:
 
     void start();
 
+    void rdbSave();
 private:
+    // 数据分库的数目
+    static const long DEFAULT_DB_NUM = 16;
+
     void initDB();
 
     std::string parseMsg(const std::string &msg);
@@ -34,11 +38,22 @@ private:
     std::string getCommand(VctS&&);
     std::string pExpiredCommand(VctS&&);
     std::string expiredCommand(VctS&&);
+    std::string bgsaveCommand(VctS&&);
+
+    std::string saveHead();
+    std::string saveSelectDB(const int index);
+    std::string saveExpiredTime(const Timestamp expiredTime);
+    std::string saveType(const int type);
+    std::string saveKV(const std::string & key,const std::string & value);
+
+    bool checkSaveCondition();
+
     // db相关
-    std::unique_ptr<Database> database_;
+    std::vector<std::unique_ptr<Database>> database_;
+    int dbIndex;
     std::unordered_map<std::string,
             std::function<std::string(VctS &&)>> cmdDict;
-
+    Timestamp lastSave_;
     // net相关
     EventLoop *loop_;
     Server server_;

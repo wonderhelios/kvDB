@@ -9,4 +9,7 @@ namespace dbObj{
     const short dbString = 0;
 
     const std::string defaultObjValue = "NULL";
+
+    //RDB默认保存时间(ms)
+    const Timestamp rdbDefaultTime(1000 * Timestamp::kMicroSecondsPerMilliSecond);
 }
