@@ -39,6 +39,9 @@ private:
     std::string pExpiredCommand(VctS&&);
     std::string expiredCommand(VctS&&);
     std::string bgsaveCommand(VctS&&);
+    std::string selectCommand(VctS&&);
+    std::string rpushCommand(VctS&&);
+    std::string rpopCommand(VctS&&);
 
     std::string saveHead();
     std::string saveSelectDB(const int index);

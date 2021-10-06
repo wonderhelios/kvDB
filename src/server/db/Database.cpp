@@ -92,6 +92,15 @@ bool Database::addKey(const int type, const std::string &key, const std::string 
         }else{
             String_[key] = objKey;
         }
+    }else if(type == dbObj::dbList){
+        auto it = List_.find(key);
+        if(it == List_.end()){
+            std::list<std::string,__gnu_cxx::__pool_alloc<std::string>> tmp;
+            tmp.emplace_back(objKey);
+            List_.insert(std::make_pair(key,tmp));
+        }else{
+            it->second.emplace_back(objKey);
+        }
     }
 }
 
@@ -163,6 +172,20 @@ bool Database::judgeKeyExpiredTime(const int type, const std::string &key) {
         }else{
             return false;
         }
+    }
+}
+
+const std::string Database::rpopList(const std::string &key) {
+    auto iter = List_.find(key);
+    if(iter != List_.end()){
+        if(iter->second.empty()){
+            return dbStatus::notFound("nil").toString();
+        }
+        std::string res = iter->second.back();
+        iter->second.pop_back();
+        return res;
+    }else{
+        return dbStatus::notFound("Not Found").toString();
     }
 }
 

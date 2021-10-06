@@ -8,6 +8,7 @@
 #include <memory>
 #include <unordered_map>
 #include <string>
+#include <list>
 #include "../net/Timestamp.h"
 
 template<typename T1, typename T2>
@@ -17,7 +18,7 @@ using Dict = std::unordered_map<T1, T2, std::hash<T1>,
 
 typedef Dict<std::string, std::string> String;
 typedef Dict<std::string, Timestamp> Expire;
-
+typedef Dict<std::string, std::list<std::string,__gnu_cxx::__pool_alloc<std::string>>> List;
 class Database {
 public:
     Database() {}
@@ -40,6 +41,8 @@ public:
 
     bool judgeKeyExpiredTime(const int type, const std::string &key);
 
+    const std::string rpopList(const std::string & key);
+
     String & getKeyStringObj() {
         return String_;
     }
@@ -55,6 +58,7 @@ private:
     std::string interceptString(const std::string & ss,int p1,int p2);
 
     String String_;
+    List List_;
 
     Expire StringExpire_;
 };

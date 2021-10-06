@@ -13,7 +13,7 @@
 DBServer::DBServer(EventLoop *loop, const InetAddress &localAddr)
         : loop_(loop),
           server_(loop_, localAddr, "DBServer"),
-          lastSave_(Timestamp::invalid()){
+          lastSave_(Timestamp::invalid()) {
 
     server_.setConnectionCallback(
             std::bind(&DBServer::onConnection, this, std::placeholders::_1));
@@ -41,7 +41,13 @@ void DBServer::initDB() {
     cmdDict.insert(std::make_pair("expire",
                                   std::bind(&DBServer::expiredCommand, this, std::placeholders::_1)));
     cmdDict.insert(std::make_pair("bgsave",
-                                  std::bind(&DBServer::bgsaveCommand,this,std::placeholders::_1)));
+                                  std::bind(&DBServer::bgsaveCommand, this, std::placeholders::_1)));
+    cmdDict.insert(std::make_pair("select",
+                                  std::bind(&DBServer::selectCommand, this, std::placeholders::_1)));
+    cmdDict.insert(std::make_pair("rpush",
+                                  std::bind(&DBServer::rpushCommand, this, std::placeholders::_1)));
+    cmdDict.insert(std::make_pair("rpop",
+                                  std::bind(&DBServer::rpopCommand, this, std::placeholders::_1)));
 }
 
 void DBServer::onConnection(const TcpConnectionPtr &conn) {
@@ -153,7 +159,7 @@ std::string DBServer::parseMsg(const std::string &msg) {
             VctS vs = {cmd, key, objKey};
             res = it->second(std::move(vs));
         }
-    }else if(cmd == "bgsave"){
+    } else if (cmd == "bgsave") {
         auto it = cmdDict.find(cmd);
         if (it == cmdDict.end()) {
             return dbStatus::notFound("Not Found Command").toString();
@@ -161,7 +167,36 @@ std::string DBServer::parseMsg(const std::string &msg) {
             VctS vs = {cmd};
             res = it->second(std::move(vs));
         }
-    } else {
+    } else if (cmd == "select") {
+        auto it = cmdDict.find(cmd);
+        if (it == cmdDict.end()) {
+            return dbStatus::notFound("Not Found Command").toString();
+        } else {
+            ss >> key;
+            VctS vs = {cmd, key};
+            res = it->second(std::move(vs));
+        }
+    } else if(cmd == "rpush") {
+        auto it = cmdDict.find(cmd);
+        if(it == cmdDict.end()) {
+            return dbStatus::notFound("Not Found Command").toString();
+        }else {
+            ss >> key;
+            while(ss >> objKey){
+                VctS vs = {cmd,key,objKey};
+                res = it->second(std::move(vs));
+            }
+        }
+    }else if(cmd == "rpop") {
+        auto it = cmdDict.find(cmd);
+        if(it == cmdDict.end()){
+            return dbStatus::notFound("Not Found Command").toString();
+        }else{
+            ss >> key;
+            VctS vs = {cmd,key};
+            res = it->second(std::move(vs));
+        }
+    }else {
         return dbStatus::notFound("Not Found Command").toString();
     }
     return res;
@@ -230,6 +265,43 @@ std::string DBServer::bgsaveCommand(VctS &&argv) {
            dbStatus::IOError("bgsave error").toString();
 }
 
+std::string DBServer::selectCommand(VctS &&argv) {
+    if (argv.size() != 2) {
+        return dbStatus::IOError("Parameter error").toString();
+    }
+    int idx = atoi(argv[1].c_str());
+    dbIndex = idx - 1;
+    database_[dbIndex]->rdbLoad(dbIndex);   // 加载rdb文件
+    return dbStatus::Ok().toString();
+}
+
+std::string DBServer::rpushCommand(VctS &&argv) {
+    if (argv.size() < 3) {
+        return dbStatus::IOError("Parameter error").toString();
+    }
+    int flag;
+    for (int i = 2; i < argv.size(); i++) {
+        flag = database_[dbIndex]->addKey(dbObj::dbList, argv[1], argv[i], dbObj::defaultObjValue);
+    }
+    if (flag) {
+        return dbStatus::Ok().toString();
+    } else {
+        return dbStatus::IOError("rpush error").toString();
+    }
+}
+
+std::string DBServer::rpopCommand(VctS &&argv) {
+    if (argv.size() != 2) {
+        return dbStatus::IOError("Parameter error").toString();
+    }
+    std::string res = database_[dbIndex]->rpopList(argv[1]);
+    if (res.empty()) {
+        return dbStatus::IOError("rpop error").toString();
+    } else {
+        return '+' + res;
+    }
+}
+
 std::string DBServer::saveHead() {
     std::string tmp = "REDIS0006";
     return tmp;
@@ -258,7 +330,7 @@ std::string DBServer::saveKV(const std::string &key, const std::string &value) {
 
 bool DBServer::checkSaveCondition() {
     Timestamp save_interval = Timestamp::now() - lastSave_;
-    if(save_interval > dbObj::rdbDefaultTime){
+    if (save_interval > dbObj::rdbDefaultTime) {
         LOG_INFO("bgsaving...");
         rdbSave();
         lastSave_ = Timestamp::now();

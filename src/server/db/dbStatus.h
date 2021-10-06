@@ -33,7 +33,7 @@ public:
                     type = "+OK";
                     break;
                 case kNotFound:
-                    type = "-NotFound";
+                    type = "-NotFound ";
                     break;
                 case kIOError:
                     type = "-IO Error: ";
