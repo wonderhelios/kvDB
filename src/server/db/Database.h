@@ -46,13 +46,19 @@ public:
     String & getKeyStringObj() {
         return String_;
     }
+    List & getKeyListObj(){
+        return List_;
+    }
     // 得到当前数据库键的数目
     int getKeySize() const{
-        return getKeyStringSize();
+        return getKeyStringSize() + getKeyListSize();
     }
     int getKeyStringSize() const {
         return String_.size();
     };
+    int getKeyListSize() const{
+        return List_.size();
+    }
 private:
 
     std::string interceptString(const std::string & ss,int p1,int p2);
@@ -61,4 +67,5 @@ private:
     List List_;
 
     Expire StringExpire_;
+    Expire ListExpire_;
 };

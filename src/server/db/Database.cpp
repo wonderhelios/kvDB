@@ -2,7 +2,6 @@
 // Created by wonder on 2021/9/26.
 //
 
-#include <iostream>
 #include <unistd.h>
 #include <fcntl.h>
 #include <cassert>
@@ -79,6 +78,36 @@ void Database::rdbLoad(int index) {
             } while (data.substr(p1,2) == "ST");
             continue;
         }
+        if(type == dbObj::dbList){
+            do{
+                p2 = data.find('!',p1);
+                Timestamp expireTime(atoi(interceptString(data,p1 + 2,p2).c_str()));
+                p1 = data.find('#',p2);
+
+                int keyLen = atoi(interceptString(data,p2+1,p1).c_str());
+                std::string key = data.substr(p1+1,keyLen);
+
+                p2 = data.find('!',p1);
+                p1 = data.find('$',p2);
+                int valueSize = atoi(interceptString(data,p2+1,p1).c_str());
+                int valueLen = 0;
+                while(valueSize--){
+                    p2 = p1;
+                    p1 = data.find('$',p2);
+                    valueLen = atoi(interceptString(data,p2+1,p1).c_str());
+                    std::string value = data.substr(p1 + 1,valueLen);
+                    if(valueSize > 1){
+                        p1 = data.find('!',p2 + 1);
+                    }
+                    addKey(dbObj::dbList,key,value,dbObj::defaultObjValue);
+                }
+                if(expireTime > Timestamp::now()){
+                    setPExpireTime(dbObj::dbList,key,expireTime);
+                }
+                p1 += valueLen + 1;
+            }while(data.substr(p1,2) == "ST");
+            continue;
+        }
     }
 }
 
@@ -114,6 +143,14 @@ bool Database::delKey(const int type, const std::string &key) {
 //            std::cout<<"Not Found"<<std::endl;
             return false;
         }
+    }else if(type == dbObj::dbList){
+        auto it = List_.find(key);
+        if(it != List_.end()){
+            List_.erase(key);
+            ListExpire_.erase(key);
+        }else{
+            return false;
+        }
     }
 }
 
@@ -139,6 +176,13 @@ bool Database::setPExpireTime(const int type, const std::string &key, double exp
             StringExpire_[key] = now;
             return true;
         }
+    }else if(type == dbObj::dbList){
+        auto it = List_.find(key);
+        if(it != List_.end()){
+            auto now = addTime(Timestamp::now(),expiredTime / Timestamp::kMilliSecondsPerSecond);
+            ListExpire_[key] = now;
+            return true;
+        }
     }
     return false;
 }
@@ -153,6 +197,13 @@ Timestamp Database::getKeyExpiredTime(const int type, const std::string &key) {
     if(type == dbObj::dbString){
         auto it = StringExpire_.find(key);
         if(it != StringExpire_.end()){
+            tmp = it->second;
+        }else{
+            tmp = Timestamp::invalid();
+        }
+    }else if(type == dbObj::dbList){
+        auto it = ListExpire_.find(key);
+        if(it != ListExpire_.end()){
             tmp = it->second;
         }else{
             tmp = Timestamp::invalid();

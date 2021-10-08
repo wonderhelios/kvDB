@@ -89,12 +89,27 @@ void DBServer::rdbSave() {
                 continue;
             }
             str += saveSelectDB(i);
+            // String
             if (database_[i]->getKeyStringSize() != 0) {
                 str += saveType(dbObj::dbString);
                 auto obj = database_[i]->getKeyStringObj();
                 for (auto it = obj.begin(); it != obj.end(); it++) {
                     str += saveExpiredTime(database_[i]->getKeyExpiredTime(dbObj::dbString, it->first));
                     str += saveKV(it->first, it->second);
+                }
+            }
+            // List
+            if(database_[i]->getKeyListSize() != 0){
+                str += saveType(dbObj::dbList);
+                auto it = database_[i]->getKeyListObj().begin();
+                for(;it != database_[i]->getKeyListObj().end();it++){
+                    str += saveExpiredTime(database_[i]->getKeyExpiredTime(dbObj::dbList,it->first));
+                    auto iter = it->second.begin();
+                    std::string tmp = '!' + std::to_string(it->second.size());
+                    for(;iter != it->second.end();iter++){
+                        tmp += '!' + std::to_string(iter->size()) + '$' + iter->c_str();
+                    }
+                    str += '!' + std::to_string(it->first.size()) + '#' + it->first.c_str() + tmp;
                 }
             }
             str.append("EOF");
@@ -114,7 +129,6 @@ std::string DBServer::parseMsg(const std::string &msg) {
     std::string res;
     std::istringstream ss(msg);
     std::string cmd, key, objKey, objValue;
-
 
     ss >> cmd;
     if (cmd.empty()) {
@@ -239,7 +253,12 @@ std::string DBServer::pExpiredCommand(VctS &&argv) {
     if (argv.size() != 3) {
         return dbStatus::IOError("Parameter error").toString();
     }
+    // dbString
     bool res = database_[dbIndex]->setPExpireTime(dbObj::dbString, argv[1], atof(argv[2].c_str()));
+    if(!res) {
+        // dbList
+        res = database_[dbIndex]->setPExpireTime(dbObj::dbList, argv[1], atof(argv[2].c_str()));
+    }
 
     return res ? dbStatus::Ok().toString() :
            dbStatus::IOError("pExpire error").toString();
@@ -249,9 +268,14 @@ std::string DBServer::expiredCommand(VctS &&argv) {
     if (argv.size() != 3) {
         return dbStatus::IOError("Parameter error").toString();
     }
+    // dbString
     bool res = database_[dbIndex]->setPExpireTime(dbObj::dbString, argv[1],
                                                   atof(argv[2].c_str()) * Timestamp::kMicroSecondsPerMilliSecond);
-
+    if(!res) {
+        // dbList
+        res = database_[dbIndex]->setPExpireTime(dbObj::dbList, argv[1],
+                                                 atof(argv[2].c_str()) * Timestamp::kMicroSecondsPerMilliSecond);
+    }
     return res ? dbStatus::Ok().toString() :
            dbStatus::IOError("expire error").toString();
 }
@@ -294,6 +318,13 @@ std::string DBServer::rpopCommand(VctS &&argv) {
     if (argv.size() != 2) {
         return dbStatus::IOError("Parameter error").toString();
     }
+    // 处理过期时间
+    bool expired = database_[dbIndex]->judgeKeyExpiredTime(dbObj::dbList, argv[1]);
+    if (expired) {
+        database_[dbIndex]->delKey(dbObj::dbList, argv[1]);
+        return dbStatus::IOError("Empty Content").toString();
+    }
+
     std::string res = database_[dbIndex]->rpopList(argv[1]);
     if (res.empty()) {
         return dbStatus::IOError("rpop error").toString();
