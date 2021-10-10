@@ -160,9 +160,9 @@ std::string Database::getKey(const int type, const std::string &key) {
     if(type == dbObj::dbString){
         auto it = String_.find(key);
         if(it == String_.end()){
-            res = dbStatus::notFound("Not Found").toString();
+            res = dbStatus::notFound("key").toString();
         }else{
-            res = '+' + it->second;
+            res = it->second;
         }
     }
     return res;
@@ -236,7 +236,7 @@ const std::string Database::rpopList(const std::string &key) {
         iter->second.pop_back();
         return res;
     }else{
-        return dbStatus::notFound("Not Found").toString();
+        return dbStatus::notFound("key").toString();
     }
 }
 

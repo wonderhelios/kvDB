@@ -137,7 +137,7 @@ std::string DBServer::parseMsg(const std::string &msg) {
     if (cmd == "set") {
         auto it = cmdDict.find(cmd);
         if (it == cmdDict.end()) {
-            return dbStatus::notFound("Not Found Command").toString();
+            return dbStatus::notFound("command").toString();
         } else {
             ss >> key;
             ss >> objKey;
@@ -147,7 +147,7 @@ std::string DBServer::parseMsg(const std::string &msg) {
     } else if (cmd == "get") {
         auto it = cmdDict.find(cmd);
         if (it == cmdDict.end()) {
-            return dbStatus::notFound("Not Found Command").toString();
+            return dbStatus::notFound("command").toString();
         } else {
             ss >> key;
             VctS vs = {cmd, key};
@@ -156,7 +156,7 @@ std::string DBServer::parseMsg(const std::string &msg) {
     } else if (cmd == "pexpire") {
         auto it = cmdDict.find(cmd);
         if (it == cmdDict.end()) {
-            return dbStatus::notFound("Not Found Command").toString();
+            return dbStatus::notFound("command").toString();
         } else {
             ss >> key;
             ss >> objKey;
@@ -166,7 +166,7 @@ std::string DBServer::parseMsg(const std::string &msg) {
     } else if (cmd == "expire") {
         auto it = cmdDict.find(cmd);
         if (it == cmdDict.end()) {
-            return dbStatus::notFound("Not Found Command").toString();
+            return dbStatus::notFound("command").toString();
         } else {
             ss >> key;
             ss >> objKey;
@@ -176,7 +176,7 @@ std::string DBServer::parseMsg(const std::string &msg) {
     } else if (cmd == "bgsave") {
         auto it = cmdDict.find(cmd);
         if (it == cmdDict.end()) {
-            return dbStatus::notFound("Not Found Command").toString();
+            return dbStatus::notFound("command").toString();
         } else {
             VctS vs = {cmd};
             res = it->second(std::move(vs));
@@ -184,7 +184,7 @@ std::string DBServer::parseMsg(const std::string &msg) {
     } else if (cmd == "select") {
         auto it = cmdDict.find(cmd);
         if (it == cmdDict.end()) {
-            return dbStatus::notFound("Not Found Command").toString();
+            return dbStatus::notFound("command").toString();
         } else {
             ss >> key;
             VctS vs = {cmd, key};
@@ -193,7 +193,7 @@ std::string DBServer::parseMsg(const std::string &msg) {
     } else if(cmd == "rpush") {
         auto it = cmdDict.find(cmd);
         if(it == cmdDict.end()) {
-            return dbStatus::notFound("Not Found Command").toString();
+            return dbStatus::notFound("command").toString();
         }else {
             ss >> key;
             while(ss >> objKey){
@@ -204,14 +204,14 @@ std::string DBServer::parseMsg(const std::string &msg) {
     }else if(cmd == "rpop") {
         auto it = cmdDict.find(cmd);
         if(it == cmdDict.end()){
-            return dbStatus::notFound("Not Found Command").toString();
+            return dbStatus::notFound("command").toString();
         }else{
             ss >> key;
             VctS vs = {cmd,key};
             res = it->second(std::move(vs));
         }
     }else {
-        return dbStatus::notFound("Not Found Command").toString();
+        return dbStatus::notFound("command").toString();
     }
     return res;
 }
@@ -329,7 +329,7 @@ std::string DBServer::rpopCommand(VctS &&argv) {
     if (res.empty()) {
         return dbStatus::IOError("rpop error").toString();
     } else {
-        return '+' + res;
+        return res;
     }
 }
 

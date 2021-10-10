@@ -25,18 +25,18 @@ public:
 
     std::string toString(){
         if(msg_ == ""){
-            return "+OK";
+            return "OK";
         }else{
             const char * type;
             switch (dbState_) {
                 case kOK:
-                    type = "+OK";
+                    type = "OK";
                     break;
                 case kNotFound:
-                    type = "-NotFound ";
+                    type = "NotFound: ";
                     break;
                 case kIOError:
-                    type = "-IO Error: ";
+                    type = "IO Error: ";
                     break;
                 default:
                     break;
