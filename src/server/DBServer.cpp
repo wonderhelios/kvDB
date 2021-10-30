@@ -48,6 +48,16 @@ void DBServer::initDB() {
                                   std::bind(&DBServer::rpushCommand, this, std::placeholders::_1)));
     cmdDict.insert(std::make_pair("rpop",
                                   std::bind(&DBServer::rpopCommand, this, std::placeholders::_1)));
+    cmdDict.insert(std::make_pair("hset",
+                                  std::bind(&DBServer::hsetCommand, this, std::placeholders::_1)));
+    cmdDict.insert(std::make_pair("hget",
+                                  std::bind(&DBServer::hgetCommand, this, std::placeholders::_1)));
+    cmdDict.insert(std::make_pair("hgetall",
+                                  std::bind(&DBServer::hgetAllCommand, this, std::placeholders::_1)));
+    cmdDict.insert(std::make_pair("sadd",
+                                  std::bind(&DBServer::saddCommand, this, std::placeholders::_1)));
+    cmdDict.insert(std::make_pair("smembers",
+                                  std::bind(&DBServer::smembersCommand, this, std::placeholders::_1)));
 }
 
 void DBServer::onConnection(const TcpConnectionPtr &conn) {
@@ -99,14 +109,41 @@ void DBServer::rdbSave() {
                 }
             }
             // List
-            if(database_[i]->getKeyListSize() != 0){
+            if (database_[i]->getKeyListSize() != 0) {
                 str += saveType(dbObj::dbList);
                 auto it = database_[i]->getKeyListObj().begin();
-                for(;it != database_[i]->getKeyListObj().end();it++){
-                    str += saveExpiredTime(database_[i]->getKeyExpiredTime(dbObj::dbList,it->first));
+                for (; it != database_[i]->getKeyListObj().end(); it++) {
+                    str += saveExpiredTime(database_[i]->getKeyExpiredTime(dbObj::dbList, it->first));
                     auto iter = it->second.begin();
                     std::string tmp = '!' + std::to_string(it->second.size());
-                    for(;iter != it->second.end();iter++){
+                    for (; iter != it->second.end(); iter++) {
+                        tmp += '!' + std::to_string(iter->size()) + '$' + iter->c_str();
+                    }
+                    str += '!' + std::to_string(it->first.size()) + '#' + it->first.c_str() + tmp;
+                }
+            }
+            // Hash
+            if (database_[i]->getKeyHashSize() != 0) {
+                str += saveType(dbObj::dbHash);
+                auto it = database_[i]->getKeyHashObj().begin();
+                for (; it != database_[i]->getKeyHashObj().end(); it++) {
+                    str += saveExpiredTime(database_[i]->getKeyExpiredTime(dbObj::dbHash, it->first));
+                    auto iter = it->second.begin();
+                    std::string tmp = '!' + std::to_string(it->second.size());
+                    for (; iter != it->second.end(); iter++) {
+                        tmp += saveKV(iter->first, iter->second);
+                    }
+                    str += '!' + std::to_string(it->first.size()) + '#' + it->first.c_str() + tmp;
+                }
+            }
+            if (database_[i]->getKeySetSize() != 0) {
+                str += saveType(dbObj::dbSet);
+                auto it = database_[i]->getKeySetObj().begin();
+                for (; it != database_[i]->getKeySetObj().end(); it++) {
+                    str += saveExpiredTime(database_[i]->getKeyExpiredTime(dbObj::dbSet, it->first));
+                    auto iter = it->second.begin();
+                    std::string tmp = '!' + std::to_string(it->second.size());
+                    for (; iter != it->second.end(); iter++) {
                         tmp += '!' + std::to_string(iter->size()) + '$' + iter->c_str();
                     }
                     str += '!' + std::to_string(it->first.size()) + '#' + it->first.c_str() + tmp;
@@ -190,27 +227,76 @@ std::string DBServer::parseMsg(const std::string &msg) {
             VctS vs = {cmd, key};
             res = it->second(std::move(vs));
         }
-    } else if(cmd == "rpush") {
+    } else if (cmd == "rpush") {
         auto it = cmdDict.find(cmd);
-        if(it == cmdDict.end()) {
+        if (it == cmdDict.end()) {
             return dbStatus::notFound("command").toString();
-        }else {
+        } else {
             ss >> key;
-            while(ss >> objKey){
-                VctS vs = {cmd,key,objKey};
+            while (ss >> objKey) {
+                VctS vs = {cmd, key, objKey};
                 res = it->second(std::move(vs));
             }
         }
-    }else if(cmd == "rpop") {
+    } else if (cmd == "rpop") {
         auto it = cmdDict.find(cmd);
-        if(it == cmdDict.end()){
+        if (it == cmdDict.end()) {
             return dbStatus::notFound("command").toString();
-        }else{
+        } else {
             ss >> key;
-            VctS vs = {cmd,key};
+            VctS vs = {cmd, key};
             res = it->second(std::move(vs));
         }
-    }else {
+    } else if (cmd == "hset") {
+        auto it = cmdDict.find(cmd);
+        if (it == cmdDict.end()) {
+            return dbStatus::notFound("command").toString();
+        } else {
+            ss >> key;
+            ss >> objKey;
+            ss >> objValue;
+            VctS vs = {cmd, key, objKey, objValue};
+            res = it->second(std::move(vs));
+        }
+    } else if (cmd == "hget") {
+        auto it = cmdDict.find(cmd);
+        if (it == cmdDict.end()) {
+            return dbStatus::notFound("command").toString();
+        } else {
+            ss >> key;
+            ss >> objKey;
+            VctS vs = {cmd, key, objKey};
+            res = it->second(std::move(vs));
+        }
+    } else if (cmd == "hgetall") {
+        auto it = cmdDict.find(cmd);
+        if (it == cmdDict.end()) {
+            return dbStatus::notFound("command").toString();
+        } else {
+            ss >> key;
+            VctS vs = {cmd, key};
+            res = it->second(std::move(vs));
+        }
+    } else if (cmd == "sadd") {
+        auto it = cmdDict.find(cmd);
+        if (it == cmdDict.end()) {
+            return dbStatus::notFound("command").toString();
+        } else {
+            ss >> key;
+            ss >> objKey;
+            VctS vs = {cmd, key, objKey};
+            res = it->second(std::move(vs));
+        }
+    } else if (cmd == "smembers") {
+        auto it = cmdDict.find(cmd);
+        if (it == cmdDict.end()) {
+            return dbStatus::notFound("command").toString();
+        } else {
+            ss >> key;
+            VctS vs = {cmd, key};
+            res = it->second(std::move(vs));
+        }
+    } else {
         return dbStatus::notFound("command").toString();
     }
     return res;
@@ -255,7 +341,7 @@ std::string DBServer::pExpiredCommand(VctS &&argv) {
     }
     // dbString
     bool res = database_[dbIndex]->setPExpireTime(dbObj::dbString, argv[1], atof(argv[2].c_str()));
-    if(!res) {
+    if (!res) {
         // dbList
         res = database_[dbIndex]->setPExpireTime(dbObj::dbList, argv[1], atof(argv[2].c_str()));
     }
@@ -271,9 +357,19 @@ std::string DBServer::expiredCommand(VctS &&argv) {
     // dbString
     bool res = database_[dbIndex]->setPExpireTime(dbObj::dbString, argv[1],
                                                   atof(argv[2].c_str()) * Timestamp::kMicroSecondsPerMilliSecond);
-    if(!res) {
+    if (!res) {
         // dbList
         res = database_[dbIndex]->setPExpireTime(dbObj::dbList, argv[1],
+                                                 atof(argv[2].c_str()) * Timestamp::kMicroSecondsPerMilliSecond);
+    }
+    if (!res) {
+        //dbHash
+        res = database_[dbIndex]->setPExpireTime(dbObj::dbHash, argv[1],
+                                                 atof(argv[2].c_str()) * Timestamp::kMicroSecondsPerMilliSecond);
+    }
+    if (!res) {
+        //dbSet
+        res = database_[dbIndex]->setPExpireTime(dbObj::dbSet, argv[1],
                                                  atof(argv[2].c_str()) * Timestamp::kMicroSecondsPerMilliSecond);
     }
     return res ? dbStatus::Ok().toString() :
@@ -307,11 +403,8 @@ std::string DBServer::rpushCommand(VctS &&argv) {
     for (int i = 2; i < argv.size(); i++) {
         flag = database_[dbIndex]->addKey(dbObj::dbList, argv[1], argv[i], dbObj::defaultObjValue);
     }
-    if (flag) {
-        return dbStatus::Ok().toString();
-    } else {
-        return dbStatus::IOError("rpush error").toString();
-    }
+
+    return flag ? dbStatus::Ok().toString() : dbStatus::IOError("rpush error").toString();
 }
 
 std::string DBServer::rpopCommand(VctS &&argv) {
@@ -331,6 +424,60 @@ std::string DBServer::rpopCommand(VctS &&argv) {
     } else {
         return res;
     }
+}
+
+std::string DBServer::hsetCommand(VctS &&argv) {
+    if (argv.size() != 4) {
+        return dbStatus::IOError("Parameter error").toString();
+    }
+    bool flag = database_[dbIndex]->addKey(dbObj::dbHash, argv[1], argv[2], argv[3]);
+
+    return flag ? dbStatus::Ok().toString() : dbStatus::IOError("hset error").toString();
+}
+
+std::string DBServer::hgetCommand(VctS &&argv) {
+    if (argv.size() != 3) {
+        return dbStatus::IOError("Parameter error").toString();
+    }
+    auto tmp = database_[dbIndex]->getKeyHashObj();
+    auto it = tmp.find(argv[1]);
+    if (it == tmp.end()) {
+        return dbStatus::notFound("Empty Content").toString();
+    } else {
+        auto iter = it->second.find(argv[2]);
+        if (iter == it->second.end()) {
+            return dbStatus::notFound("Empty Content").toString();
+        } else {
+            return iter->second;
+        }
+    }
+}
+
+std::string DBServer::hgetAllCommand(VctS &&argv) {
+    if (argv.size() != 2) {
+        return dbStatus::IOError("Parameter error").toString();
+    }
+    std::string res = database_[dbIndex]->getKey(dbObj::dbHash, argv[1]);
+
+    return res.empty() ? dbStatus::IOError("Empty Content").toString() : res;
+}
+
+std::string DBServer::saddCommand(VctS &&argv) {
+    if (argv.size() != 3) {
+        return dbStatus::IOError("Parameter error").toString();
+    }
+    bool flag = database_[dbIndex]->addKey(dbObj::dbSet, argv[1], argv[2], dbObj::defaultObjValue);
+
+    return flag ? dbStatus::Ok().toString() : dbStatus::IOError("sadd error").toString();
+}
+
+std::string DBServer::smembersCommand(VctS &&argv) {
+    if (argv.size() != 2) {
+        return dbStatus::IOError("Parameter error").toString();
+    }
+    std::string res = database_[dbIndex]->getKey(dbObj::dbSet,argv[1]);
+
+    return res.empty() ? dbStatus::notFound("Empty Content").toString() : res;
 }
 
 std::string DBServer::saveHead() {

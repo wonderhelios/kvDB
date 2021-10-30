@@ -108,6 +108,67 @@ void Database::rdbLoad(int index) {
             }while(data.substr(p1,2) == "ST");
             continue;
         }
+        if(type == dbObj::dbHash){
+            do{
+                p2 = data.find('!',p1);
+                Timestamp expireTime(atoi(interceptString(data,p1 + 2,p2).c_str()));
+                p1 = data.find('#',p2);
+                int keyLen = atoi(interceptString(data,p2+1,p1).c_str());
+                std::string key = data.substr(p1+1,keyLen);
+                p2 = data.find('!',p1);
+                p1 = data.find('!',p2+1);
+                int valueSize = atoi(interceptString(data,p2+1,p1).c_str());
+                int valueLen = 0;
+                while(valueSize--){
+                    p2 = data.find('#',p1);
+                    int valueKeyLen = atoi(interceptString(data,p1 + 1,p2).c_str());
+                    std::string valueKey = data.substr(p2 + 1,valueKeyLen);
+                    p1 = data.find('!',p2);
+                    p2 = p1;
+                    p1 = data.find('$',p2);
+                    valueLen = atoi(interceptString(data,p2 + 1,p1).c_str());
+                    std::string value = data.substr(p1 + 1,valueLen);
+                    if(valueSize > 1){
+                        p1 = data.find('!',p2 + 1);
+                    }
+                    addKey(dbObj::dbHash,key,valueKey,value);
+                }
+                if(expireTime > Timestamp::now()){
+                    setPExpireTime(dbObj::dbList,key,expireTime);
+                }
+                p1 += 1 + valueLen;
+            }while(data.substr(p1,2) == "ST");
+            continue;
+        }
+        if(type == dbObj::dbSet){
+            do{
+                p2 = data.find('!',p1);
+                Timestamp expireTime(atoi(interceptString(data,p1 + 2,p2).c_str()));
+                p1 = data.find('#',p2);
+                int keyLen = atoi(interceptString(data,p2+1,p1).c_str());
+                std::string key = data.substr(p1+1,keyLen);
+                p2 = data.find('!',p1);
+                p1 = data.find('!',p2+1);
+                int valueSize = atoi(interceptString(data,p2+1,p1).c_str());
+                int valueLen = 0;
+                while(valueSize--){
+                    p2 = p1;
+                    p1 = data.find('$',p2);
+                    valueLen = atoi(interceptString(data,p2 + 1,p1).c_str());
+                    std::string value = data.substr(p1 + 1,valueLen);
+
+                    if(valueSize > 1){
+                        p1 = data.find('!',p2 + 1);
+                    }
+                    addKey(dbObj::dbSet,key,value,dbObj::defaultObjValue);
+                }
+                if(expireTime > Timestamp::now()){
+                    setPExpireTime(dbObj::dbSet,key,expireTime);
+                }
+                p1 += 1 + valueLen;
+            }while(data.substr(p1,2) == "ST");
+            continue;
+        }
     }
 }
 
@@ -130,6 +191,24 @@ bool Database::addKey(const int type, const std::string &key, const std::string 
         }else{
             it->second.emplace_back(objKey);
         }
+    }else if(type == dbObj::dbHash){
+        auto it = Hash_.find(key);
+        if(it == Hash_.end()){
+            std::map<std::string, std::string,std::less<>,__gnu_cxx::__pool_alloc<std::pair<const std::string, std::string>>> tmp;
+            tmp.insert(std::make_pair(objKey,objValue));
+            Hash_.insert(std::make_pair(key,tmp));
+        }else{
+            it->second[objKey] = objValue;
+        }
+    }else if(type == dbObj::dbSet){
+        auto it = Set_.find(key);
+        if(it == Set_.end()){
+            std::unordered_set<std::string, std::hash<std::string>, std::equal_to<>, __gnu_cxx::__pool_alloc<std::string>> tmp;
+            tmp.insert(objKey);
+            Set_.insert(std::make_pair(key,tmp));
+        }else{
+            it->second.insert(objKey);
+        }
     }
 }
 
@@ -151,20 +230,62 @@ bool Database::delKey(const int type, const std::string &key) {
         }else{
             return false;
         }
+    }else if(type == dbObj::dbHash){
+        auto it = Hash_.find(key);
+        if(it != Hash_.end()){
+            Hash_.erase(key);
+            HashExpire_.erase(key);
+        }else{
+            return false;
+        }
+    }else if(type == dbObj::dbSet){
+        auto it = Set_.find(key);
+        if(it != Set_.end()){
+            Set_.erase(key);
+            SetExpire_.erase(key);
+        }else{
+            return false;
+        }
     }
+    return true;
 }
 
 std::string Database::getKey(const int type, const std::string &key) {
     std::string res;
 
-    if(type == dbObj::dbString){
-        auto it = String_.find(key);
-        if(it == String_.end()){
-            res = dbStatus::notFound("key").toString();
-        }else{
-            res = it->second;
+    if(!judgeKeyExpiredTime(type,key)) {
+        if (type == dbObj::dbString) {
+            auto it = String_.find(key);
+            if (it == String_.end()) {
+                res = dbStatus::notFound("key").toString();
+            } else {
+                res = it->second;
+            }
+        }else if(type == dbObj::dbHash){
+            auto it = Hash_.find(key);
+            if(it == Hash_.end()){
+                res = dbStatus::notFound("key").toString();
+            }else{
+                std::map<std::string, std::string>::iterator iter;
+                for(iter = it->second.begin();iter != it->second.end();iter++){
+                    res += iter->first + ':' + iter->second + ' ';
+                }
+            }
+        }else if(type == dbObj::dbSet){
+            auto it = Set_.find(key);
+            if(it == Set_.end()){
+                res = dbStatus::notFound("key").toString();
+            }else{
+                for(const auto & iter : it->second){
+                    res += iter + ' ';
+                }
+            }
         }
+    }else{
+        delKey(type, key);
+        res = "The key has expired and will be deleted";
     }
+
     return res;
 }
 
@@ -181,6 +302,20 @@ bool Database::setPExpireTime(const int type, const std::string &key, double exp
         if(it != List_.end()){
             auto now = addTime(Timestamp::now(),expiredTime / Timestamp::kMilliSecondsPerSecond);
             ListExpire_[key] = now;
+            return true;
+        }
+    }else if(type == dbObj::dbHash){
+        auto it = Hash_.find(key);
+        if(it != Hash_.end()){
+            auto now = addTime(Timestamp::now(),expiredTime / Timestamp::kMilliSecondsPerSecond);
+            HashExpire_[key] = now;
+            return true;
+        }
+    }else if(type == dbObj::dbSet){
+        auto it = Set_.find(key);
+        if(it != Set_.end()){
+            auto now = addTime(Timestamp::now(),expiredTime / Timestamp::kMilliSecondsPerSecond);
+            SetExpire_[key] = now;
             return true;
         }
     }
@@ -204,6 +339,20 @@ Timestamp Database::getKeyExpiredTime(const int type, const std::string &key) {
     }else if(type == dbObj::dbList){
         auto it = ListExpire_.find(key);
         if(it != ListExpire_.end()){
+            tmp = it->second;
+        }else{
+            tmp = Timestamp::invalid();
+        }
+    }else if(type == dbObj::dbHash){
+        auto it =HashExpire_.find(key);
+        if(it != HashExpire_.end()){
+            tmp = it->second;
+        }else{
+            tmp = Timestamp::invalid();
+        }
+    }else if(type == dbObj::dbSet){
+        auto it =SetExpire_.find(key);
+        if(it != SetExpire_.end()){
             tmp = it->second;
         }else{
             tmp = Timestamp::invalid();

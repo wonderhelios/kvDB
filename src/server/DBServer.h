@@ -42,6 +42,11 @@ private:
     std::string selectCommand(VctS&&);
     std::string rpushCommand(VctS&&);
     std::string rpopCommand(VctS&&);
+    std::string hsetCommand(VctS&&);
+    std::string hgetCommand(VctS&&);
+    std::string hgetAllCommand(VctS&&);
+    std::string saddCommand(VctS&&);
+    std::string smembersCommand(VctS&&);
 
     std::string saveHead();
     std::string saveSelectDB(const int index);

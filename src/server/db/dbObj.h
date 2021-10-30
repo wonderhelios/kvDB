@@ -8,6 +8,9 @@ namespace dbObj{
     // 数据类型
     const short dbString = 0;
     const short dbList = 1;
+    const short dbHash = 2;
+    const short dbSet = 3;
+
 
     const std::string defaultObjValue = "NULL";
 
