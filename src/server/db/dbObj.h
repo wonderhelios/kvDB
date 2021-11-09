@@ -10,6 +10,7 @@ namespace dbObj{
     const short dbList = 1;
     const short dbHash = 2;
     const short dbSet = 3;
+    const short dbZSet =4;
 
 
     const std::string defaultObjValue = "NULL";

@@ -58,6 +58,10 @@ void DBServer::initDB() {
                                   std::bind(&DBServer::saddCommand, this, std::placeholders::_1)));
     cmdDict.insert(std::make_pair("smembers",
                                   std::bind(&DBServer::smembersCommand, this, std::placeholders::_1)));
+    cmdDict.insert(std::make_pair("zadd",
+                                  std::bind(&DBServer::zaddCommand,this,std::placeholders::_1)));
+    cmdDict.insert(std::make_pair("zcard",
+                                  std::bind(&DBServer::zcardCommand,this,std::placeholders::_1)));
 }
 
 void DBServer::onConnection(const TcpConnectionPtr &conn) {
@@ -86,7 +90,7 @@ void DBServer::rdbSave() {
         path += "/dump.rdb";
 
         std::ofstream out;
-        out.open(path, std::ios::out | std::ios::app | std::ios::binary);
+        out.open(path, std::ios::out | std::ios::trunc | std::ios::binary);
         if (!out.is_open()) {
             LOG_FATAL("RDB持久化失败...");
         }
@@ -136,6 +140,7 @@ void DBServer::rdbSave() {
                     str += '!' + std::to_string(it->first.size()) + '#' + it->first.c_str() + tmp;
                 }
             }
+            // Set
             if (database_[i]->getKeySetSize() != 0) {
                 str += saveType(dbObj::dbSet);
                 auto it = database_[i]->getKeySetObj().begin();
@@ -149,6 +154,8 @@ void DBServer::rdbSave() {
                     str += '!' + std::to_string(it->first.size()) + '#' + it->first.c_str() + tmp;
                 }
             }
+            // ZSet
+
             str.append("EOF");
             out.write(str.c_str(), str.size());
         }
@@ -296,8 +303,28 @@ std::string DBServer::parseMsg(const std::string &msg) {
             VctS vs = {cmd, key};
             res = it->second(std::move(vs));
         }
-    } else {
-        return dbStatus::notFound("command").toString();
+    } else if(cmd == "zadd") {
+        auto it = cmdDict.find(cmd);
+        if(it == cmdDict.end()){
+            return dbStatus::notFound("command").toString();
+        }else{
+            ss >> key;
+            ss >> objValue;
+            ss >> objKey;
+            VctS vs = {cmd,key,objKey,objValue};
+            res = it->second(std::move(vs));
+        }
+    }else if(cmd == "zcard"){
+        auto it = cmdDict.find(cmd);
+        if(it == cmdDict.end()){
+            return dbStatus::notFound("command").toString();
+        }else{
+            ss >> key;
+            VctS vs = {cmd,key};
+            res = it->second(std::move(vs));
+        }
+    }else{
+            return dbStatus::notFound("command").toString();
     }
     return res;
 }
@@ -478,6 +505,28 @@ std::string DBServer::smembersCommand(VctS &&argv) {
     std::string res = database_[dbIndex]->getKey(dbObj::dbSet,argv[1]);
 
     return res.empty() ? dbStatus::notFound("Empty Content").toString() : res;
+}
+
+std::string DBServer::zaddCommand(VctS &&argv) {
+    if(argv.size() != 4){
+        return dbStatus::IOError("Parameter error").toString();
+    }
+    bool flag = database_[dbIndex]->addKey(dbObj::dbZSet,argv[1],argv[2],argv[3]);
+
+    return flag ? dbStatus::Ok().toString() : dbStatus::IOError("zadd error").toString();
+}
+
+std::string DBServer::zcardCommand(VctS &&argv) {
+    if(argv.size() != 2){
+        return dbStatus::IOError("Parameter error").toString();
+    }
+    auto tmpZset = database_[dbIndex]->getKeyZSetObj();
+    auto it = tmpZset.find(argv[1]);
+    if(it == tmpZset.end()){
+        return dbStatus::notFound("Empty Content").toString();
+    }else{
+        return std::to_string(it->second->getLength());
+    }
 }
 
 std::string DBServer::saveHead() {
