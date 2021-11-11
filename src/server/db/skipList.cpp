@@ -55,6 +55,12 @@ int SkipList::getRandomLevel() {
 }
 
 void SkipList::insertNode(const std::string &obj, double score) {
+    // 判断obj是否已经存在了,若已经存在,则删除
+    if(keySet_.find(obj) != keySet_.end()){
+        deleteNode(obj,keySet_[obj]);
+    }
+    keySet_[obj] = score;
+
     // 待插入节点的前驱节点
     skiplistNode *update[MAX_LEVEL];
     skiplistNode *tmp = header_;

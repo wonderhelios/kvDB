@@ -7,6 +7,7 @@
 #include <cassert>
 #include <sys/stat.h>
 #include <sys/mman.h>
+#include <cfloat>
 #include "Database.h"
 #include "dbObj.h"
 #include "dbStatus.h"
@@ -169,6 +170,34 @@ void Database::rdbLoad(int index) {
             } while (data.substr(p1, 2) == "ST");
             continue;
         }
+        if(type == dbObj::dbZSet){
+            do{
+                p2 = data.find('!',p1);
+                Timestamp expireTime(atoi(interceptString(data, p1 + 2, p2).c_str()));
+                p1 = data.find('#',p2);
+                int keyLen = atoi(interceptString(data,p2 + 1,p1).c_str());
+                std::string key = data.substr(p1 + 1,keyLen);
+                p2 = data.find('!',p1);
+                p1 = data.find('!',p2 + 1);
+                int valueSize = atoi(interceptString(data,p2 + 1,p1).c_str());
+                int valueLen = 0;
+                while(valueSize--){
+                    p2 = data.find('#',p1);
+                    int valueKeyLen = atoi(interceptString(data,p1 + 1,p2).c_str());
+                    std::string valueKey = data.substr(p2 + 1,valueKeyLen);
+                    p1 = data.find('!',p2);
+                    p2 = p1;
+                    p1 = data.find('$',p2);
+                    valueLen = atoi(interceptString(data,p2 + 1,p1).c_str());
+                    std::string value = data.substr(p1 + 1,valueLen);
+                    if(valueSize > 1)
+                        p1 = data.find('!',p2 + 1);
+                    addKey(dbObj::dbZSet,key,valueKey,value);
+                }
+                p1 += 1 + valueLen;
+            } while (data.substr(p1,2) == "ST");
+            continue;
+        }
     }
 }
 
@@ -296,6 +325,25 @@ std::string Database::getKey(const int type, const std::string &key) {
                     res += iter + ' ';
                 }
             }
+        }else if(type == dbObj::dbZSet){    // ZSet中的key,可能包含range范围,格式为 key:low-high 或 key
+            double low = DBL_MIN;
+            double high = DBL_MAX;
+            std::string curKey = key;
+
+            if(key.find(':') != std::string::npos){
+                int p1 = key.find(':');
+                int p2 = key.find('-');
+                curKey = key.substr(0,p1);
+                low = std::stod(key.substr(p1+1,p2-p1-1));
+                high = std::stod(key.substr(p2+1,key.size() - p2));
+            }
+            auto it = ZSet_.find(curKey);
+            rangespec range(low,high);
+            std::vector<skiplistNode*> nodes(it->second->getNodeInRange(range));
+            for(auto node : nodes){
+                res += node->obj_ + ':' + std::to_string(node->score_) + '\n';
+            }
+            res.pop_back();
         }
     } else {
         delKey(type, key);
@@ -332,6 +380,13 @@ bool Database::setPExpireTime(const int type, const std::string &key, double exp
         if (it != Set_.end()) {
             auto now = addTime(Timestamp::now(), expiredTime / Timestamp::kMilliSecondsPerSecond);
             SetExpire_[key] = now;
+            return true;
+        }
+    }else if(type == dbObj::dbZSet){
+        auto it = ZSet_.find(key);
+        if(it != ZSet_.end()){
+            auto now = addTime(Timestamp::now(),expiredTime / Timestamp::kMilliSecondsPerSecond);
+            ZSetExpire_[key] = now;
             return true;
         }
     }
@@ -373,7 +428,15 @@ Timestamp Database::getKeyExpiredTime(const int type, const std::string &key) {
         } else {
             tmp = Timestamp::invalid();
         }
+    }else if (type == dbObj::dbZSet){
+        auto it = ZSetExpire_.find(key);
+        if(it != ZSetExpire_.end()){
+            tmp = it->second;
+        }else{
+            tmp = Timestamp::invalid();
+        }
     }
+
     return tmp;
 }
 

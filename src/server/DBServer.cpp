@@ -5,6 +5,7 @@
 #include <sstream>
 #include <unistd.h>
 #include <fstream>
+#include <cfloat>
 #include "DBServer.h"
 #include "net/Logger.h"
 #include "db/dbStatus.h"
@@ -62,6 +63,11 @@ void DBServer::initDB() {
                                   std::bind(&DBServer::zaddCommand,this,std::placeholders::_1)));
     cmdDict.insert(std::make_pair("zcard",
                                   std::bind(&DBServer::zcardCommand,this,std::placeholders::_1)));
+    cmdDict.insert(std::make_pair("zrange",
+                                  std::bind(&DBServer::zrangeCommand,this,std::placeholders::_1)));
+    cmdDict.insert(std::make_pair("zgetall",
+                                  std::bind(&DBServer::zgetAllCommand,this,std::placeholders::_1)));
+
 }
 
 void DBServer::onConnection(const TcpConnectionPtr &conn) {
@@ -155,7 +161,20 @@ void DBServer::rdbSave() {
                 }
             }
             // ZSet
-
+            if(database_[i]->getKeyZSetSize() != 0){
+                str += saveType(dbObj::dbZSet);
+                auto it = database_[i]->getKeyZSetObj().begin();
+                for(;it != database_[i]->getKeyZSetObj().end();it++){
+                    str += saveExpiredTime(database_[i]->getKeyExpiredTime(dbObj::dbZSet,it->first));
+                    std::string tmp = '!' + std::to_string(it->second->getLength());
+                    rangespec spec(DBL_MIN,DBL_MAX);
+                    std::vector<skiplistNode*> vecSkip(it->second->getNodeInRange(spec));
+                    for(int j=0;j < vecSkip.size();j++){
+                        tmp+= saveKV(vecSkip[j]->obj_, std::to_string(vecSkip[j]->score_));
+                    }
+                    str += '!' + std::to_string(it->first.size()) + '#' + it->first.c_str() + tmp;
+                }
+            }
             str.append("EOF");
             out.write(str.c_str(), str.size());
         }
@@ -309,8 +328,8 @@ std::string DBServer::parseMsg(const std::string &msg) {
             return dbStatus::notFound("command").toString();
         }else{
             ss >> key;
-            ss >> objValue;
             ss >> objKey;
+            ss >> objValue;
             VctS vs = {cmd,key,objKey,objValue};
             res = it->second(std::move(vs));
         }
@@ -323,8 +342,28 @@ std::string DBServer::parseMsg(const std::string &msg) {
             VctS vs = {cmd,key};
             res = it->second(std::move(vs));
         }
-    }else{
+    }else if(cmd == "zrange") {
+        auto it = cmdDict.find(cmd);
+        if(it == cmdDict.end()){
             return dbStatus::notFound("command").toString();
+        }else{
+            ss >> key;
+            ss >> objKey;   // range start
+            ss >> objValue; // range end
+            VctS vs = {cmd,key,objKey,objValue};
+            res = it->second(std::move(vs));
+        }
+    }else if(cmd == "zgetall"){
+        auto it = cmdDict.find(cmd);
+        if(it == cmdDict.end()){
+            return dbStatus::notFound("command").toString();
+        }else{
+            ss >> key;
+            VctS vs = {cmd,key};
+            res = it->second(std::move(vs));
+        }
+    }else{
+        return dbStatus::notFound("command").toString();
     }
     return res;
 }
@@ -372,6 +411,18 @@ std::string DBServer::pExpiredCommand(VctS &&argv) {
         // dbList
         res = database_[dbIndex]->setPExpireTime(dbObj::dbList, argv[1], atof(argv[2].c_str()));
     }
+    if(!res){
+        // dbHash
+        res = database_[dbIndex]->setPExpireTime(dbObj::dbHash,argv[1],atof(argv[2].c_str()));
+    }
+    if(!res){
+        // dbSet
+        res = database_[dbIndex]->setPExpireTime(dbObj::dbSet,argv[1],atof(argv[2].c_str()));
+    }
+    if(!res){
+        // dbZSet
+        res = database_[dbIndex]->setPExpireTime(dbObj::dbZSet,argv[1],atof(argv[2].c_str()));
+    }
 
     return res ? dbStatus::Ok().toString() :
            dbStatus::IOError("pExpire error").toString();
@@ -397,6 +448,11 @@ std::string DBServer::expiredCommand(VctS &&argv) {
     if (!res) {
         //dbSet
         res = database_[dbIndex]->setPExpireTime(dbObj::dbSet, argv[1],
+                                                 atof(argv[2].c_str()) * Timestamp::kMicroSecondsPerMilliSecond);
+    }
+    if(!res){
+        //dbZSet
+        res = database_[dbIndex]->setPExpireTime(dbObj::dbZSet,argv[1],
                                                  atof(argv[2].c_str()) * Timestamp::kMicroSecondsPerMilliSecond);
     }
     return res ? dbStatus::Ok().toString() :
@@ -529,8 +585,30 @@ std::string DBServer::zcardCommand(VctS &&argv) {
     }
 }
 
+std::string DBServer::zrangeCommand(VctS &&argv) {
+    if(argv.size() != 4){
+        return dbStatus::IOError("Parameter error").toString();
+    }
+    std::string res;
+    // zset的key
+    std::string args = argv[1];
+    // 添加range的范围
+    args += ':' + argv[2] + '-' + argv[3];
+    res = database_[dbIndex]->getKey(dbObj::dbZSet,args);
+
+    return res.empty() ? dbStatus::notFound("Empty Content").toString() : res;
+}
+
+std::string DBServer::zgetAllCommand(VctS &&argv) {
+    if(argv.size() != 2){
+        return dbStatus::IOError("Parameter error").toString();
+    }
+    std::string res = database_[dbIndex]->getKey(dbObj::dbZSet,argv[1]);
+
+    return res.empty() ? dbStatus::notFound("Empty Content").toString() : res;
+}
 std::string DBServer::saveHead() {
-    std::string tmp = "REDIS0006";
+    std::string tmp = "KV0001";
     return tmp;
 }
 

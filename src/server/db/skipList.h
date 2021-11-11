@@ -7,6 +7,8 @@
 #include <string>
 #include <memory>
 #include <vector>
+#include <unordered_set>
+#include <unordered_map>
 
 #define MAX_LEVEL 12
 
@@ -77,6 +79,9 @@ public:
 
 private:
     skiplistNode *header_, *tail_;
+    // 用来保证key不同
+    std::unordered_map<std::string,double> keySet_;
+
     int level_;
     unsigned long length_;
 

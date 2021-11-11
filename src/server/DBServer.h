@@ -49,6 +49,8 @@ private:
     std::string smembersCommand(VctS&&);
     std::string zaddCommand(VctS&&);
     std::string zcardCommand(VctS&&);
+    std::string zrangeCommand(VctS&&);
+    std::string zgetAllCommand(VctS&&);
 
     std::string saveHead();
     std::string saveSelectDB(const int index);
