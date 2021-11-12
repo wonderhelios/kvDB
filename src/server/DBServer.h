@@ -50,6 +50,7 @@ private:
     std::string zaddCommand(VctS&&);
     std::string zcardCommand(VctS&&);
     std::string zrangeCommand(VctS&&);
+    std::string zcountCommand(VctS&&);
     std::string zgetAllCommand(VctS&&);
 
     std::string saveHead();

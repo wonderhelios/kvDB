@@ -22,7 +22,6 @@ public:
     skiplistNode(const std::string & obj, double score, int level);
 
     std::unique_ptr<std::unique_ptr<skiplistLevel>[]> levels_;
-    skiplistNode *backward_;
     std::string obj_;
     double score_;
 };
@@ -31,12 +30,10 @@ public:
 class skiplistLevel {
 public:
     skiplistLevel()
-            : forward_(nullptr),
-              span_(0) {
+            : forward_(nullptr){
 
     }
     skiplistNode *forward_;
-    unsigned long span_;
 };
 
 // class for range
@@ -68,17 +65,13 @@ public:
     int getRandomLevel();
     void insertNode(const std::string &, double);
     void deleteNode(const std::string &,double);
-    bool isInRange(rangespec & range);
-    skiplistNode * getFirstInRange(rangespec & range);
-    skiplistNode * getLastInRange(rangespec & range);
     unsigned long getCountInRange(rangespec & range);
     std::vector<skiplistNode*> getNodeInRange(rangespec & range);
-    void deleteRange(rangespec & range);
 
     unsigned long getLength() { return length_; }
 
 private:
-    skiplistNode *header_, *tail_;
+    skiplistNode *header_;
     // 用来保证key不同
     std::unordered_map<std::string,double> keySet_;
 

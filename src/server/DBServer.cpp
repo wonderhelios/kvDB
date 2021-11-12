@@ -65,6 +65,8 @@ void DBServer::initDB() {
                                   std::bind(&DBServer::zcardCommand,this,std::placeholders::_1)));
     cmdDict.insert(std::make_pair("zrange",
                                   std::bind(&DBServer::zrangeCommand,this,std::placeholders::_1)));
+    cmdDict.insert(std::make_pair("zcount",
+                                  std::bind(&DBServer::zcountCommand,this,std::placeholders::_1)));
     cmdDict.insert(std::make_pair("zgetall",
                                   std::bind(&DBServer::zgetAllCommand,this,std::placeholders::_1)));
 
@@ -353,6 +355,17 @@ std::string DBServer::parseMsg(const std::string &msg) {
             VctS vs = {cmd,key,objKey,objValue};
             res = it->second(std::move(vs));
         }
+    }else if(cmd == "zcount"){
+        auto it = cmdDict.find(cmd);
+        if(it == cmdDict.end()){
+            return dbStatus::notFound("command").toString();
+        }else{
+            ss >> key;
+            ss >> objKey;   // range start
+            ss >> objValue; // range end
+            VctS vs = {cmd,key,objKey,objValue};
+            res = it->second(std::move(vs));
+        }
     }else if(cmd == "zgetall"){
         auto it = cmdDict.find(cmd);
         if(it == cmdDict.end()){
@@ -586,17 +599,33 @@ std::string DBServer::zcardCommand(VctS &&argv) {
 }
 
 std::string DBServer::zrangeCommand(VctS &&argv) {
-    if(argv.size() != 4){
+    if(argv.size() != 4 || argv[2].empty() || argv[3].empty()){
         return dbStatus::IOError("Parameter error").toString();
     }
     std::string res;
     // zset的key
     std::string args = argv[1];
     // 添加range的范围
-    args += ':' + argv[2] + '-' + argv[3];
+    args += ':' + argv[2] + '@' + argv[3];
     res = database_[dbIndex]->getKey(dbObj::dbZSet,args);
 
     return res.empty() ? dbStatus::notFound("Empty Content").toString() : res;
+}
+
+std::string DBServer::zcountCommand(VctS &&argv) {
+    if(argv.size() != 4 || argv[2].empty() || argv[3].empty()){
+        return dbStatus::IOError("Parameter error").toString();
+    }
+    std::string res;
+    auto it = database_[dbIndex]->getKeyZSetObj();
+    rangespec range(std::stod(argv[2]),std::stod(argv[3]));
+    auto obj = it.find(argv[1]);
+    if(obj == it.end()){
+        res = dbStatus::notFound("key").toString();
+    }else{
+        res = "(count)" + std::to_string(obj->second->getCountInRange(range));
+    }
+    return res;
 }
 
 std::string DBServer::zgetAllCommand(VctS &&argv) {

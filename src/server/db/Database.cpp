@@ -325,25 +325,29 @@ std::string Database::getKey(const int type, const std::string &key) {
                     res += iter + ' ';
                 }
             }
-        }else if(type == dbObj::dbZSet){    // ZSet中的key,可能包含range范围,格式为 key:low-high 或 key
+        }else if(type == dbObj::dbZSet){    // ZSet中的key,可能包含range范围,格式为 key:low@high 或 key
             double low = DBL_MIN;
             double high = DBL_MAX;
             std::string curKey = key;
 
             if(key.find(':') != std::string::npos){
                 int p1 = key.find(':');
-                int p2 = key.find('-');
+                int p2 = key.find('@');
                 curKey = key.substr(0,p1);
                 low = std::stod(key.substr(p1+1,p2-p1-1));
                 high = std::stod(key.substr(p2+1,key.size() - p2));
             }
             auto it = ZSet_.find(curKey);
-            rangespec range(low,high);
-            std::vector<skiplistNode*> nodes(it->second->getNodeInRange(range));
-            for(auto node : nodes){
-                res += node->obj_ + ':' + std::to_string(node->score_) + '\n';
+            if (it == ZSet_.end()) {
+                res = dbStatus::notFound("key").toString();
+            }else {
+                rangespec range(low, high);
+                std::vector<skiplistNode *> nodes(it->second->getNodeInRange(range));
+                for (auto node: nodes) {
+                    res += node->obj_ + ':' + std::to_string(node->score_) + '\n';
+                }
+                res.pop_back();
             }
-            res.pop_back();
         }
     } else {
         delKey(type, key);
