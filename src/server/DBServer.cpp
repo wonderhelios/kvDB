@@ -592,7 +592,7 @@ std::string DBServer::zcardCommand(VctS &&argv) {
     auto tmpZset = database_[dbIndex]->getKeyZSetObj();
     auto it = tmpZset.find(argv[1]);
     if(it == tmpZset.end()){
-        return dbStatus::notFound("Empty Content").toString();
+        return dbStatus::notFound("key").toString();
     }else{
         return std::to_string(it->second->getLength());
     }

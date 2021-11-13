@@ -12,6 +12,7 @@ public:
     ~DBClient();
 
     void Connect();
+    void Close();
     void Send(const std::string &buf);
     void Recv(char * buf);
 

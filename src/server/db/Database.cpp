@@ -326,7 +326,7 @@ std::string Database::getKey(const int type, const std::string &key) {
                 }
             }
         }else if(type == dbObj::dbZSet){    // ZSet中的key,可能包含range范围,格式为 key:low@high 或 key
-            double low = DBL_MIN;
+            double low = -DBL_MAX;
             double high = DBL_MAX;
             std::string curKey = key;
 

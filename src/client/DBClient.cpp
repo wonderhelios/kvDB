@@ -51,6 +51,10 @@ void DBClient::Connect() {
     }
 }
 
+void DBClient::Close() {
+    close(connfd_);
+}
+
 void DBClient::Send(const std::string &buf) {
     ::write(connfd_,buf.c_str(),buf.size());
 }
