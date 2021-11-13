@@ -38,7 +38,7 @@
     
   * 运行截图
 
-    ![image --basic](https://github.com/WonderLiu96/kvDB/img/img.png)
+    ![image --basic](https://github.com/WonderLiu96/kvDB/blob/master/img/img.png)
 
   * 测试结果
 
