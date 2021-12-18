@@ -12,7 +12,7 @@
 #include "EventLoop.h"
 
 void defaultConnectionCallback(const TcpConnectionPtr &conn) {
-    LOG_INFO("EchoServer - %s -> %s is %s.\n",
+    LOG_INFO("Server - %s -> %s is %s.\n",
              conn->peerAddr().toIpPort().c_str(),
              conn->localAddr().toIpPort().c_str(),
              (conn->connected() ? "UP" : "DOWN"));
@@ -55,6 +55,7 @@ void TcpConnection::connectEstablished() {
     loop_->assertInLoopThread();
     assert(state_ == kConnecting);
     setState(kConnected);
+    channel_->tie(shared_from_this());
     channel_->enableReading();
 
     connectionCallback_(shared_from_this());

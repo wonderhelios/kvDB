@@ -8,7 +8,7 @@
 #include "Logger.h"
 #include <cassert>
 
-__thread EventLoop *t_loopInThread = 0;
+thread_local EventLoop *t_loopInThread = 0;
 
 // 定义Poller IO复用接口的默认超时时间
 const int kPollTimeMs = 10000;

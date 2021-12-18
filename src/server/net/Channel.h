@@ -7,6 +7,7 @@
 #include "Timestamp.h"
 #include "noncopyable.h"
 #include <functional>
+#include <memory>
 
 class EventLoop;
 
@@ -29,6 +30,7 @@ public:
   int events() const { return events_; }
   void set_revents(int revt) { revents_ = revt; }
   bool isNoneEvent() const { return events_ == kNoneEvent; }
+  void tie(const std::shared_ptr<void> &);
 
   void enableReading();
   void enableWriting();
@@ -44,6 +46,7 @@ public:
 
 private:
   void update();
+  void handleEventWithGuard(Timestamp receiveTime);
 
   static const int kNoneEvent;
   static const int kReadEvent;
@@ -54,6 +57,9 @@ private:
   int events_;
   int revents_;
   int index_;
+  // for TcpConnection
+  std::weak_ptr<void> tie_;
+  bool tied_;
 
   ReadEventCallback readCallback_;
   EventCallback writeCallback_;

@@ -74,6 +74,11 @@ void DBClient::parseCmd() {
         tmp = tmp.substr(0, pos);
         if(tmp == "quit")
             break;
+        if(tmp == "help"){
+            std::cout<<helpTxt;
+            std::cout << "kvDB> ";
+            continue;
+        }
         handleRequest(tmp);
         std::cout << "kvDB> ";
     }
